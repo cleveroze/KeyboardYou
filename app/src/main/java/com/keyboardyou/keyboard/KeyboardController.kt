@@ -4,6 +4,7 @@ import android.view.KeyEvent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
@@ -59,6 +60,9 @@ class KeyboardController(
 
     var currentWord by mutableStateOf("")
     val suggestions = mutableStateListOf<Suggestion>()
+
+    /** Какая клавиша сейчас нажата в каждом ряду — для анимации соседей. */
+    val pressedInRow = mutableStateMapOf<Int, Int>()
 
     var preview by mutableStateOf<KeyPreview?>(null)
     var altPopup by mutableStateOf<AltPopup?>(null)

@@ -436,6 +436,9 @@ fun TranslatorBar(controller: KeyboardController) {
                     )
                 }
             }
+            if (controller.translatorBusy) {
+                com.keyboardyou.theme.MorphLoader(palette.accent, Modifier.padding(end = 8.dp), size = 26.dp)
+            }
             Column(horizontalAlignment = Alignment.End) {
                 MiniAction("Вставить", palette.action, palette.actionText) { controller.insertTranslation() }
                 Spacer(Modifier.height(4.dp))

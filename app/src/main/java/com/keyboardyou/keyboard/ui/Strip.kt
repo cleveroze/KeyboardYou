@@ -58,7 +58,13 @@ import com.keyboardyou.data.AnimationLevel
 import com.keyboardyou.keyboard.KeyboardController
 import com.keyboardyou.keyboard.Panel
 import com.keyboardyou.keyboard.Suggestion
+import com.keyboardyou.theme.Motion
 import com.keyboardyou.theme.PolarShape
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.LinearEasing
 
 private data class ToolItem(val icon: ImageVector, val active: Boolean, val onClick: () -> Unit)
 
@@ -114,20 +120,26 @@ private fun StripButton(icon: ImageVector, background: Color, tint: Color, rotat
     val palette = LocalPalette.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.85f else 1f, spring(dampingRatio = 0.4f, stiffness = 600f), label = "stripScale")
+    val scale by animateFloatAsState(if (pressed) 0.82f else 1f, Motion.fastSpatial(), label = "stripScale")
+    // Акцентные «печенья» медленно вращаются, как в M3 Expressive.
+    val spin = if (settings.animations == AnimationLevel.PLAYFUL) {
+        val t = rememberInfiniteTransition(label = "spin")
+        val v by t.animateFloat(0f, 360f, infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "spinV")
+        v
+    } else 0f
     Box(
         Modifier
             .size(40.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-                rotationZ = if (settings.animations == AnimationLevel.PLAYFUL) rotation / 3f else 0f
+                rotationZ = spin + if (settings.animations == AnimationLevel.PLAYFUL) rotation / 3f else 0f
             }
             .keySurface(background, PolarShape(settings.accentShape), palette, settings.keyBorders)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = rotation - rotation / 3f })
+        Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = rotation - rotation / 3f - spin })
     }
 }
 
@@ -146,7 +158,7 @@ private fun Toolbar(controller: KeyboardController) {
     )
     LazyRow(
         Modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
         contentPadding = PaddingValues(horizontal = 2.dp),
     ) {
@@ -159,14 +171,24 @@ private fun Toolbar(controller: KeyboardController) {
             ) {
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
-                val scale by animateFloatAsState(if (pressed) 0.85f else 1f, spring(dampingRatio = 0.45f), label = "toolScale")
+                // Связанная группа кнопок M3 Expressive: внутренние углы маленькие,
+                // активная или нажатая кнопка становится пилюлей и раздаётся вширь.
+                val round = item.active || pressed
+                val first = index == 0
+                val last = index == items.lastIndex
+                val inner by animateDpAsState(if (round) 18.dp else 6.dp, Motion.fastSpatial(), label = "inner")
+                val width by animateDpAsState(if (round) 58.dp else 44.dp, Motion.fastSpatial(), label = "toolWidth")
                 Box(
                     Modifier
-                        .size(width = 46.dp, height = 36.dp)
-                        .graphicsLayer { scaleX = scale; scaleY = scale }
+                        .size(width = width, height = 36.dp)
                         .keySurface(
-                            if (item.active) palette.chipActive else palette.chip.copy(alpha = if (palette.glass) palette.chip.alpha else 0.6f),
-                            RoundedCornerShape(50),
+                            if (item.active) palette.chipActive else palette.chip.copy(alpha = if (palette.glass) palette.chip.alpha else 0.75f),
+                            RoundedCornerShape(
+                                topStart = if (first) 18.dp else inner,
+                                bottomStart = if (first) 18.dp else inner,
+                                topEnd = if (last) 18.dp else inner,
+                                bottomEnd = if (last) 18.dp else inner,
+                            ),
                             palette,
                             settings.keyBorders,
                         )

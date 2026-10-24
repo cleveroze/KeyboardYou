@@ -174,3 +174,32 @@ class MorphShape(
         }
     }
 }
+
+/** Морф между двумя полярными формами. */
+class PolarMorphShape(
+    private val from: KeyShape,
+    private val to: KeyShape,
+    private val progress: Float,
+    private val rotation: Float = 0f,
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val path = Path()
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        for (i in 0 until SAMPLES) {
+            val t = (2 * PI * i / SAMPLES).toFloat()
+            val a = from.radius(t - rotation)
+            val r = a + (to.radius(t - rotation) - a) * progress
+            val x = cx + cos(t) * r * cx
+            val y = cy + sin(t) * r * cy
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        return Outline.Generic(path)
+    }
+
+    override fun equals(other: Any?) = other is PolarMorphShape && other.from == from && other.to == to &&
+        other.progress == progress && other.rotation == rotation
+
+    override fun hashCode(): Int = ((from.hashCode() * 31 + to.hashCode()) * 31 + progress.hashCode()) * 31 + rotation.hashCode()
+}

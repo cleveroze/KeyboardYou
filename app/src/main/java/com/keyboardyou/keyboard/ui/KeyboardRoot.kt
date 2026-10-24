@@ -128,7 +128,7 @@ fun KeysArea(controller: KeyboardController) {
     ) { _ ->
         val rows = controller.layout().rows
         Column(Modifier.fillMaxWidth()) {
-            rows.forEach { row ->
+            rows.forEachIndexed { rowIndex, row ->
                 val total = row.sumOf { it.width.toDouble() }.toFloat()
                 // Ряды короче основного центрируем «распорками», как на настоящих клавиатурах.
                 val maxUnits = rows.maxOf { r -> r.sumOf { it.width.toDouble() } }.toFloat()
@@ -139,7 +139,7 @@ fun KeysArea(controller: KeyboardController) {
                     row.forEachIndexed { i, key ->
                         val ps = if (i == 0) side else 0f
                         val pe = if (i == row.lastIndex) side else 0f
-                        KeyView(key, controller, Modifier.weight(key.width + ps + pe), padStart = ps, padEnd = pe)
+                        KeyView(key, controller, Modifier.weight(key.width + ps + pe), padStart = ps, padEnd = pe, row = rowIndex, index = i)
                     }
                 }
             }

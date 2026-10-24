@@ -65,6 +65,8 @@ import com.keyboardyou.keyboard.KeyboardController
 import com.keyboardyou.keyboard.Mode
 import com.keyboardyou.keyboard.ShiftState
 import com.keyboardyou.theme.MorphShape
+import com.keyboardyou.theme.Motion
+import androidx.compose.ui.text.font.FontWeight
 import com.keyboardyou.theme.PolarShape
 import kotlin.math.abs
 
@@ -77,6 +79,8 @@ fun KeyView(
     modifier: Modifier = Modifier,
     padStart: Float = 0f,
     padEnd: Float = 0f,
+    row: Int = -1,
+    index: Int = -1,
 ) {
     val palette = LocalPalette.current
     val settings = LocalKbSettings.current
@@ -114,11 +118,32 @@ fun KeyView(
         label = "pressColor",
     )
 
+    // Shift во включённом состоянии перетекает в акцентную форму (M3 Expressive).
+    val active by animateFloatAsState(
+        if (key.type == KeyType.SHIFT && controller.shift != ShiftState.OFF) 1f else 0f,
+        if (anim == AnimationLevel.OFF) tween(0) else Motion.spatial(),
+        label = "active",
+    )
+    // Соседи нажатой клавиши расступаются, как в группе кнопок. Зоны касания не двигаются.
+    val pressedHere = controller.pressedInRow[row]
+    val push by animateFloatAsState(
+        when {
+            anim != AnimationLevel.PLAYFUL || row < 0 || pressedHere == null -> 0f
+            pressedHere == index - 1 -> 1f
+            pressedHere == index + 1 -> -1f
+            else -> 0f
+        },
+        Motion.fastSpatial(),
+        label = "push",
+    )
     val morphable = key.type != KeyType.SPACE && anim == AnimationLevel.PLAYFUL
+    val target = if (key.type == KeyType.SHIFT || key.type == KeyType.ENTER) settings.accentShape else settings.pressShape
+    val corner = if (key.type == KeyType.ENTER) 1f else settings.keyCorner
+    val morph = maxOf(active, if (morphable) progress * 0.85f else 0f).coerceIn(0f, 1.15f)
     val shape = when {
         key.type == KeyType.EMOJI -> PolarShape(settings.accentShape)
-        morphable -> MorphShape(settings.keyCorner, settings.pressShape, (progress * 0.85f).coerceIn(0f, 1f))
-        else -> RoundedCornerShape(percent = (settings.keyCorner * 50).toInt())
+        morph > 0.001f -> MorphShape(corner, target, morph, rotation = active * 0.35f)
+        else -> RoundedCornerShape(percent = (corner * 50).toInt())
     }
     val pressedColor = if (role == KeyRole.NORMAL) palette.pressed else lerp(base, palette.pressed, 0.6f)
     val fill = lerp(base, pressedColor, colorProgress)
@@ -143,6 +168,7 @@ fun KeyView(
                     down.consume()
                     pressed = true
                     val c = ctrl
+                    if (row >= 0) c.pressedInRow[row] = index
                     c.onKeyDown(key, c.boundsOf(coords))
                     try {
                         when (key.type) {
@@ -152,6 +178,7 @@ fun KeyView(
                         }
                     } finally {
                         pressed = false
+                        if (row >= 0 && c.pressedInRow[row] == index) c.pressedInRow.remove(row)
                         c.onKeyUp()
                     }
                 }
@@ -166,19 +193,26 @@ fun KeyView(
                     .padding(settings.keyGap.dp / 2)
                     .onGloballyPositioned { coords = it }
                     .graphicsLayer {
-                        val s = when (anim) {
-                            AnimationLevel.OFF -> 1f
-                            AnimationLevel.SUBTLE -> 1f - 0.04f * progress
-                            AnimationLevel.PLAYFUL -> if (key.type == KeyType.SPACE) 1f - 0.03f * progress else 1f - 0.08f * progress
+                        when (anim) {
+                            AnimationLevel.OFF -> Unit
+                            AnimationLevel.SUBTLE -> {
+                                scaleX = 1f - 0.04f * progress
+                                scaleY = 1f - 0.04f * progress
+                            }
+                            AnimationLevel.PLAYFUL -> {
+                                // «Сжатие и растяжение»: нажатая клавиша шире и ниже.
+                                val stretch = if (key.type == KeyType.SPACE) 0.02f else 0.09f
+                                scaleX = 1f + stretch * progress - 0.05f * kotlin.math.abs(push)
+                                scaleY = 1f - 0.08f * progress
+                                translationX = push * 3.dp.toPx()
+                            }
                         }
-                        scaleX = s
-                        scaleY = s
                         rotationZ = if (anim == AnimationLevel.PLAYFUL && key.type == KeyType.EMOJI) progress * 25f else 0f
                     }
                     .keySurface(fill, shape, palette, settings.keyBorders, glow = if (palette.glass) colorProgress else 0f),
                 contentAlignment = Alignment.Center,
             ) {
-                KeyContent(key, controller, content)
+                KeyContent(key, controller, content, if (anim == AnimationLevel.OFF) 0f else progress)
             }
             if (padEnd > 0.001f) Spacer(Modifier.weight(padEnd))
         }
@@ -291,16 +325,19 @@ private suspend fun AwaitPointerEventScope.handleSpace(
 }
 
 @Composable
-private fun KeyContent(key: Key, controller: KeyboardController, color: Color) {
+private fun KeyContent(key: Key, controller: KeyboardController, color: Color, press: Float = 0f) {
     val textStyle = LocalKeyTextStyle.current
     val settings = LocalKbSettings.current
     val palette = LocalPalette.current
     when (key.type) {
         KeyType.CHAR, KeyType.COMMA, KeyType.PERIOD -> {
             Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
+                // Вариативный шрифт: при нажатии буква «наливается» жирностью.
+                val baseWeight = textStyle.fontWeight?.weight ?: 700
+                val weight = (baseWeight + (900 - baseWeight) * press).toInt().coerceIn(100, 1000)
                 Text(
                     controller.displayLabel(key),
-                    style = textStyle,
+                    style = textStyle.copy(fontWeight = FontWeight(weight)),
                     color = color,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
