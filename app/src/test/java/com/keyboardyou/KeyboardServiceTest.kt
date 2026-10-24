@@ -99,4 +99,19 @@ class KeyboardServiceTest {
         rule.mainClock.advanceTimeBy(1000)
         snapshot()
     }
+
+    @Test
+    fun allBackgroundEffectsRender() {
+        launch(name = "effects")
+        com.keyboardyou.data.BackgroundEffect.entries.forEach { effect ->
+            listOf(false, true).forEach { onTop ->
+                SettingsRepository.update { it.copy(effect = effect, effectOnTop = onTop) }
+                rule.mainClock.advanceTimeBy(700)
+                snapshot("_" + effect.name + if (onTop) "_top" else "")
+            }
+        }
+        SettingsRepository.update { it.copy(effect = com.keyboardyou.data.BackgroundEffect.NONE, effectOnTop = false) }
+        rule.mainClock.advanceTimeBy(300)
+        key("в").performClick()
+    }
 }

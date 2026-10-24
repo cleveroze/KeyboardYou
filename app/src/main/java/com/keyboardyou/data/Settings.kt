@@ -26,6 +26,20 @@ enum class KeyFont(val title: String) {
 
 enum class AnimationLevel(val title: String) { OFF("Выкл"), SUBTLE("Мягкие"), PLAYFUL("Игривые") }
 
+enum class BackgroundEffect(val title: String, val emoji: String) {
+    NONE("Без эффекта", "○"),
+    SNOW("Снег", "❄️"),
+    RAIN("Дождь", "🌧️"),
+    STARS("Звёздное небо", "✨"),
+    BUBBLES("Пузыри", "🫧"),
+    CONFETTI("Конфетти", "🎉"),
+    FIREFLIES("Светлячки", "🌟"),
+    AURORA("Северное сияние", "🌌"),
+    SAKURA("Сакура", "🌸"),
+    WAVES("Волны", "🌊"),
+    HEARTS("Сердечки", "💗"),
+}
+
 enum class BackgroundStyle(val title: String) { SOLID("Сплошной"), GRADIENT("Градиент"), BLOBS("Живые пятна") }
 
 data class KeyboardSettings(
@@ -36,6 +50,9 @@ data class KeyboardSettings(
     val seedColor: Int = 0xFF2BD9A0.toInt(),
     val backgroundStyle: BackgroundStyle = BackgroundStyle.BLOBS,
     val blurBehind: Boolean = false,
+    val effect: BackgroundEffect = BackgroundEffect.NONE,
+    val effectIntensity: Float = 1f,
+    val effectOnTop: Boolean = false,
     // Формы
     val keyCorner: Float = 0.5f,
     val accentShape: KeyShape = KeyShape.COOKIE_9,
@@ -107,6 +124,9 @@ object SettingsRepository {
             seedColor = getInt("seedColor", d.seedColor),
             backgroundStyle = enum("backgroundStyle", d.backgroundStyle),
             blurBehind = getBoolean("blurBehind", d.blurBehind),
+            effect = enum("effect", d.effect),
+            effectIntensity = getFloat("effectIntensity", d.effectIntensity),
+            effectOnTop = getBoolean("effectOnTop", d.effectOnTop),
             keyCorner = getFloat("keyCorner", d.keyCorner),
             accentShape = enum("accentShape", d.accentShape),
             pressShape = enum("pressShape", d.pressShape),
@@ -150,6 +170,9 @@ object SettingsRepository {
             .putInt("seedColor", s.seedColor)
             .putString("backgroundStyle", s.backgroundStyle.name)
             .putBoolean("blurBehind", s.blurBehind)
+            .putString("effect", s.effect.name)
+            .putFloat("effectIntensity", s.effectIntensity)
+            .putBoolean("effectOnTop", s.effectOnTop)
             .putFloat("keyCorner", s.keyCorner)
             .putString("accentShape", s.accentShape.name)
             .putString("pressShape", s.pressShape.name)

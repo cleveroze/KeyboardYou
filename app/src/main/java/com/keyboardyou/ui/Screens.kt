@@ -207,6 +207,29 @@ private fun LazyListScope.colorsScreen(s: KeyboardSettings) {
         ThemeStyleRow(s)
     }
     item {
+        Text(
+            "Анимированный фон",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 28.dp, top = 18.dp, bottom = 4.dp),
+        )
+        EffectRow(s)
+    }
+    if (s.effect != com.keyboardyou.data.BackgroundEffect.NONE) item {
+        SettingsGroup {
+            item {
+                SliderRow("Интенсивность", s.effectIntensity, 0.4f..2f, icon = Icons.Rounded.AutoAwesome, label = { "${(it * 100).roundToInt()}%" }) { v ->
+                    set { it.copy(effectIntensity = v) }
+                }
+            }
+            item {
+                SwitchRow("Поверх клавиш", "Эффект летит прямо по клавишам", Icons.Rounded.Visibility, s.effectOnTop) { v ->
+                    set { it.copy(effectOnTop = v) }
+                }
+            }
+        }
+    }
+    item {
         SettingsGroup("Источник цвета") {
             item {
                 SegmentedRow(
@@ -672,3 +695,47 @@ private fun LazyListScope.aboutScreen() {
     }
 }
 
+
+@Composable
+private fun EffectRow(s: KeyboardSettings) {
+    val context = LocalContext.current
+    val dark = when (s.darkMode) {
+        DarkMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+        DarkMode.LIGHT -> false
+        DarkMode.DARK -> true
+    }
+    val palette = remember(s.colorSource, s.seedColor, s.themeStyle, dark) { paletteFor(schemeFor(context, s, dark), s.themeStyle, dark) }
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(com.keyboardyou.data.BackgroundEffect.entries) { effect ->
+            val selected = s.effect == effect
+            val scale by animateFloatAsState(if (selected) 1f else 0.93f, spring(dampingRatio = 0.5f), label = "fx")
+            Column(
+                Modifier
+                    .width(108.dp)
+                    .graphicsLayer { scaleX = scale; scaleY = scale }
+                    .clip(RoundedCornerShape(22.dp))
+                    .clickable { set { it.copy(effect = effect) } },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(84.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(palette.background)
+                        .then(if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(22.dp)) else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    com.keyboardyou.keyboard.ui.BackgroundEffectLayer(effect, palette, 1f)
+                    if (effect == com.keyboardyou.data.BackgroundEffect.NONE) Text("○", color = palette.keyText)
+                }
+                Text(
+                    effect.emoji + " " + effect.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
+                )
+            }
+        }
+    }
+}

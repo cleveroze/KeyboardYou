@@ -57,6 +57,12 @@ fun KeyboardRoot(
                 .onGloballyPositioned { controller.rootCoordinates = it }
         ) {
             KeyboardBackground(palette, settings.backgroundStyle, settings.animations, backgroundAlpha, Modifier.matchParentSize())
+            if (!settings.effectOnTop) {
+                BackgroundEffectLayer(
+                    settings.effect, palette, settings.effectIntensity, Modifier.matchParentSize(),
+                    animate = settings.animations != AnimationLevel.OFF,
+                )
+            }
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -88,6 +94,12 @@ fun KeyboardRoot(
                         }
                     }
                 }
+            }
+            if (settings.effectOnTop) {
+                BackgroundEffectLayer(
+                    settings.effect, palette, settings.effectIntensity, Modifier.matchParentSize(),
+                    animate = settings.animations != AnimationLevel.OFF,
+                )
             }
             KeyOverlays(controller)
         }
