@@ -133,12 +133,14 @@ fun KeysArea(controller: KeyboardController) {
                 // Ряды короче основного центрируем «распорками», как на настоящих клавиатурах.
                 val maxUnits = rows.maxOf { r -> r.sumOf { it.width.toDouble() } }.toFloat()
                 val side = ((maxUnits - total) / 2f).coerceAtLeast(0f)
+                // Короткие ряды центрируем, но крайние клавиши забирают пустое место
+                // себе как зону касания — промахнуться мимо них нельзя.
                 Row(Modifier.fillMaxWidth().height(settings.keyHeight.dp)) {
-                    if (side > 0.01f) Box(Modifier.weight(side))
-                    row.forEach { key ->
-                        KeyView(key, controller, Modifier.weight(key.width))
+                    row.forEachIndexed { i, key ->
+                        val ps = if (i == 0) side else 0f
+                        val pe = if (i == row.lastIndex) side else 0f
+                        KeyView(key, controller, Modifier.weight(key.width + ps + pe), padStart = ps, padEnd = pe)
                     }
-                    if (side > 0.01f) Box(Modifier.weight(side))
                 }
             }
         }

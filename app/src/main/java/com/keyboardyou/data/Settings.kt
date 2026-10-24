@@ -40,8 +40,8 @@ data class KeyboardSettings(
     val keyCorner: Float = 0.5f,
     val accentShape: KeyShape = KeyShape.COOKIE_9,
     val pressShape: KeyShape = KeyShape.COOKIE_12,
-    val keyHeight: Int = 52,
-    val keyGap: Int = 5,
+    val keyHeight: Int = 54,
+    val keyGap: Int = 4,
     val keyBorders: Boolean = false,
     // Шрифт
     val font: KeyFont = KeyFont.NUNITO,

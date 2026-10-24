@@ -70,9 +70,13 @@ object Layouts {
             }
             rows += when (rowIndex) {
                 lang.rows.lastIndex -> buildList {
-                    add(Key("shift", KeyType.SHIFT, 1.5f))
+                    // Shift и ⌫ заполняют ряд до ширины самого длинного ряда букв,
+                    // чтобы буквы в остальных рядах были максимально широкими.
+                    val widest = lang.rows.maxOf { it.length }
+                    val side = ((widest - row.length) / 2f).coerceIn(1f, 1.5f)
+                    add(Key("shift", KeyType.SHIFT, side))
                     addAll(keys)
-                    add(Key("del", KeyType.BACKSPACE, 1.5f))
+                    add(Key("del", KeyType.BACKSPACE, side))
                 }
                 else -> keys
             }

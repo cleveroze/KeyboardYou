@@ -14,6 +14,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -68,11 +71,18 @@ import kotlin.math.abs
 private enum class KeyRole { NORMAL, SPECIAL, ACCENT, ACTION }
 
 @Composable
-fun KeyView(key: Key, controller: KeyboardController, modifier: Modifier = Modifier) {
+fun KeyView(
+    key: Key,
+    controller: KeyboardController,
+    modifier: Modifier = Modifier,
+    padStart: Float = 0f,
+    padEnd: Float = 0f,
+) {
     val palette = LocalPalette.current
     val settings = LocalKbSettings.current
     var pressed by remember { mutableStateOf(false) }
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var touchCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val anim = settings.animations
 
     val role = when (key.type) {
@@ -121,22 +131,12 @@ fun KeyView(key: Key, controller: KeyboardController, modifier: Modifier = Modif
     val swipeStep = with(density) { 11.dp.toPx() }
     val swipeSlop = with(density) { 14.dp.toPx() }
 
+    // Вся ячейка (включая отступы и «распорки» по краям ряда) ловит касания —
+    // так между клавишами нет мёртвых зон, а рисуется только сама клавиша.
     Box(
         modifier
             .fillMaxHeight()
-            .padding(settings.keyGap.dp / 2)
-            .onGloballyPositioned { coords = it }
-            .graphicsLayer {
-                val s = when (anim) {
-                    AnimationLevel.OFF -> 1f
-                    AnimationLevel.SUBTLE -> 1f - 0.04f * progress
-                    AnimationLevel.PLAYFUL -> if (key.type == KeyType.SPACE) 1f - 0.03f * progress else 1f - 0.08f * progress
-                }
-                scaleX = s
-                scaleY = s
-                rotationZ = if (anim == AnimationLevel.PLAYFUL && key.type == KeyType.EMOJI) progress * 25f else 0f
-            }
-            .keySurface(fill, shape, palette, settings.keyBorders, glow = if (palette.glass) colorProgress else 0f)
+            .onGloballyPositioned { touchCoords = it }
             .pointerInput(key, longPress, spaceCursor, swipeStep) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -148,7 +148,7 @@ fun KeyView(key: Key, controller: KeyboardController, modifier: Modifier = Modif
                         when (key.type) {
                             KeyType.BACKSPACE -> handleBackspace(down.id, c)
                             KeyType.SPACE -> handleSpace(down, c, longPress, spaceCursor, swipeStep, swipeSlop)
-                            else -> handleRegular(down.id, key, c, longPress) { c.boundsOf(coords) }
+                            else -> handleRegular(down.id, key, c, longPress, { c.boundsOf(touchCoords).left }) { c.boundsOf(coords) }
                         }
                     } finally {
                         pressed = false
@@ -156,9 +156,32 @@ fun KeyView(key: Key, controller: KeyboardController, modifier: Modifier = Modif
                     }
                 }
             },
-        contentAlignment = Alignment.Center,
     ) {
-        KeyContent(key, controller, content)
+        Row(Modifier.fillMaxSize()) {
+            if (padStart > 0.001f) Spacer(Modifier.weight(padStart))
+            Box(
+                Modifier
+                    .weight(key.width)
+                    .fillMaxHeight()
+                    .padding(settings.keyGap.dp / 2)
+                    .onGloballyPositioned { coords = it }
+                    .graphicsLayer {
+                        val s = when (anim) {
+                            AnimationLevel.OFF -> 1f
+                            AnimationLevel.SUBTLE -> 1f - 0.04f * progress
+                            AnimationLevel.PLAYFUL -> if (key.type == KeyType.SPACE) 1f - 0.03f * progress else 1f - 0.08f * progress
+                        }
+                        scaleX = s
+                        scaleY = s
+                        rotationZ = if (anim == AnimationLevel.PLAYFUL && key.type == KeyType.EMOJI) progress * 25f else 0f
+                    }
+                    .keySurface(fill, shape, palette, settings.keyBorders, glow = if (palette.glass) colorProgress else 0f),
+                contentAlignment = Alignment.Center,
+            ) {
+                KeyContent(key, controller, content)
+            }
+            if (padEnd > 0.001f) Spacer(Modifier.weight(padEnd))
+        }
     }
 }
 
@@ -184,6 +207,7 @@ private suspend fun AwaitPointerEventScope.handleRegular(
     key: Key,
     c: KeyboardController,
     longPress: Long,
+    touchLeft: () -> Float,
     bounds: () -> androidx.compose.ui.geometry.Rect,
 ) {
     val released = withTimeoutOrNull(longPress) { awaitRelease(id) }
@@ -193,8 +217,8 @@ private suspend fun AwaitPointerEventScope.handleRegular(
     }
     if (c.onKeyLongPress(key, bounds())) {
         if (c.altPopup != null) {
-            val origin = bounds()
-            val ok = awaitRelease(id) { change -> c.onAltMove(origin.left + change.position.x) }
+            val left = touchLeft()
+            val ok = awaitRelease(id) { change -> c.onAltMove(left + change.position.x) }
             if (ok) c.onAltRelease() else c.altPopup = null
         } else {
             awaitRelease(id)
