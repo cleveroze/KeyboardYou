@@ -103,7 +103,7 @@ private fun AltPopupView(p: AltPopup, controller: KeyboardController) {
                 .graphicsLayer {
                     scaleX = appear.value
                     scaleY = appear.value
-                    alpha = appear.value
+                    alpha = appear.value.coerceIn(0f, 1f)
                     transformOrigin = TransformOrigin(((p.bounds.center.x - x) / (cell * p.options.size)).coerceIn(0f, 1f), 1f)
                 }
                 .shadow(if (palette.glass) 0.dp else 8.dp, RoundedCornerShape(22.dp), clip = false)
@@ -119,7 +119,7 @@ private fun AltPopupView(p: AltPopup, controller: KeyboardController) {
                         .fillMaxHeight()
                         .graphicsLayer { scaleX = 0.9f + 0.1f * s; scaleY = 0.9f + 0.1f * s }
                         .keySurface(
-                            palette.accent.copy(alpha = s * palette.accent.alpha),
+                            palette.accent.copy(alpha = (s * palette.accent.alpha).coerceIn(0f, 1f)),
                             PolarShape(settings.pressShape),
                             palette.copy(glass = false),
                             borders = false,

@@ -216,7 +216,7 @@ fun EmojiPanel(controller: KeyboardController) {
                         Modifier
                             .size(38.dp)
                             .graphicsLayer { scaleX = 0.85f + 0.15f * s; scaleY = 0.85f + 0.15f * s }
-                            .keySurface(palette.accent.copy(alpha = s * palette.accent.alpha), PolarShape(LocalKbSettings.current.accentShape), palette.copy(glass = false), false)
+                            .keySurface(palette.accent.copy(alpha = (s * palette.accent.alpha).coerceIn(0f, 1f)), PolarShape(LocalKbSettings.current.accentShape), palette.copy(glass = false), false)
                             .clickable { scope.launch { gridState.animateScrollToItem(headerIndices[index]) } },
                         contentAlignment = Alignment.Center,
                     ) { Text(section.icon, fontSize = 18.sp) }
