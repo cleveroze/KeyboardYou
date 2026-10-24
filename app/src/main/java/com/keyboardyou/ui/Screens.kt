@@ -593,7 +593,7 @@ private fun ModelsList() {
             val isBusy = lang.code in busy
             SettingRow("${lang.flag}  ${lang.name}", if (isDownloaded) "Скачана" else "Не скачана") {
                 when {
-                    downloaded == null || isBusy -> CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+                    downloaded == null || isBusy -> com.keyboardyou.theme.MorphLoader(MaterialTheme.colorScheme.primary, size = 30.dp)
                     isDownloaded && lang.code != "en" -> IconButton(onClick = {
                         busy = busy + lang.code
                         scope.launch {

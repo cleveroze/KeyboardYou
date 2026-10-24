@@ -53,6 +53,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.keyboardyou.theme.KeyShape
+import com.keyboardyou.theme.Motion
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import com.keyboardyou.theme.MorphShape
 import com.keyboardyou.theme.PolarShape
 
@@ -167,7 +175,7 @@ fun SliderRow(
                 )
             }
         }
-        Slider(value = value, onValueChange = onChange, valueRange = range, steps = steps)
+        ExpressiveSlider(value, range, steps, onChange)
     }
 }
 
@@ -177,16 +185,96 @@ fun <T> SegmentedRow(title: String?, options: List<T>, selected: T, label: (T) -
         if (title != null) {
             Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 10.dp))
         }
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            options.forEachIndexed { i, option ->
-                SegmentedButton(
-                    selected = option == selected,
-                    onClick = { onSelect(option) },
-                    shape = SegmentedButtonDefaults.itemShape(i, options.size),
-                ) { Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        ButtonGroup(options, selected, label, onSelect)
+    }
+}
+
+/**
+ * Группа кнопок M3 Expressive: выбранная кнопка становится пилюлей, шире остальных
+ * и «наливается» жирностью; внутренние углы соседей маленькие.
+ */
+@Composable
+fun <T> ButtonGroup(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
+    Row(Modifier.fillMaxWidth().height(48.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        options.forEachIndexed { i, option ->
+            val isSelected = option == selected
+            val interaction = remember { MutableInteractionSource() }
+            val pressed by interaction.collectIsPressedAsState()
+            val weight by animateFloatAsState(
+                when {
+                    pressed -> 1.35f
+                    isSelected -> 1.2f
+                    else -> 1f
+                },
+                Motion.fastSpatial(),
+                label = "w",
+            )
+            val inner by animateDpAsState(if (isSelected || pressed) 24.dp else 8.dp, Motion.fastSpatial(), label = "inner")
+            val container by animateColorAsState(
+                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                label = "c",
+            )
+            val content by animateColorAsState(
+                if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                label = "t",
+            )
+            val fontWeight by animateIntAsState(if (isSelected) 850 else 600, Motion.spatial(), label = "fw")
+            val outer = 24.dp
+            val shape = RoundedCornerShape(
+                topStart = if (i == 0) outer else inner,
+                bottomStart = if (i == 0) outer else inner,
+                topEnd = if (i == options.lastIndex) outer else inner,
+                bottomEnd = if (i == options.lastIndex) outer else inner,
+            )
+            Box(
+                Modifier
+                    .weight(weight)
+                    .fillMaxSize()
+                    .clip(shape)
+                    .background(container)
+                    .clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple()) { onSelect(option) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label(option),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight(fontWeight.coerceIn(100, 1000))),
+                    color = content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
             }
         }
     }
+}
+
+/** Слайдер M3 Expressive: толстая дорожка и узкая ручка-«палочка». */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExpressiveSlider(value: Float, range: ClosedFloatingPointRange<Float>, steps: Int, onChange: (Float) -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Slider(
+        value = value,
+        onValueChange = onChange,
+        valueRange = range,
+        steps = steps,
+        interactionSource = interaction,
+        thumb = {
+            SliderDefaults.Thumb(
+                interactionSource = interaction,
+                thumbSize = DpSize(5.dp, 44.dp),
+            )
+        },
+        track = { state ->
+            SliderDefaults.Track(
+                sliderState = state,
+                modifier = Modifier.height(18.dp),
+                thumbTrackGapSize = 6.dp,
+                trackInsideCornerSize = 3.dp,
+                drawStopIndicator = null,
+            )
+        },
+    )
 }
 
 /** Ряд выбора формы — как «Свои формы» в Material 3 Expressive. */
@@ -262,13 +350,16 @@ fun PressableCard(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(dampingRatio = 0.5f, stiffness = 500f), label = "card")
+    val scale by animateFloatAsState(if (pressed) 0.95f else 1f, Motion.fastSpatial(), label = "card")
+    // При нажатии углы «надуваются» — форма меняется, как у кнопок M3 Expressive.
+    val corner by animateDpAsState(if (pressed) 52.dp else 0.dp, Motion.fastSpatial(), label = "corner")
+    val activeShape = if (corner > 0.5.dp) RoundedCornerShape(corner.coerceAtLeast(26.dp)) else shape
     Surface(
         color = color,
-        shape = shape,
+        shape = activeShape,
         modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(shape)
+            .clip(activeShape)
             .clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick),
     ) {
         Column(Modifier.padding(18.dp), content = content)

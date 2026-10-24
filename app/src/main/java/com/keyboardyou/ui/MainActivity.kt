@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -233,9 +234,27 @@ private fun Hero() {
                 Icon(Icons.Rounded.Keyboard, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(34.dp))
             }
             Spacer(Modifier.width(16.dp))
+            // Заголовок «дышит» толщиной вариативного шрифта.
+            val breath = androidx.compose.animation.core.rememberInfiniteTransition(label = "breath")
+            val w by breath.animateFloat(
+                400f, 900f,
+                androidx.compose.animation.core.infiniteRepeatable(
+                    androidx.compose.animation.core.tween(2200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                    androidx.compose.animation.core.RepeatMode.Reverse,
+                ),
+                label = "w",
+            )
             Column {
-                Text("Keyboard", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text("You", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Keyboard",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight(w.toInt())),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    "You",
+                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight(1300 - w.toInt())),
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         }
         Spacer(Modifier.height(14.dp))
