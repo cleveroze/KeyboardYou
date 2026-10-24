@@ -24,6 +24,13 @@ jobs:
       - name: Test and build release APK
         run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
 
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-screens
+          path: app/build/screens
+          if-no-files-found: ignore
+
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk KeyboardYou.apk
 

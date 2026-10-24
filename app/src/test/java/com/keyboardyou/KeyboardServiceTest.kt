@@ -6,8 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import com.keyboardyou.data.SettingsRepository
@@ -29,7 +27,8 @@ class KeyboardServiceTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
 
-    private fun launch(style: ThemeStyle = ThemeStyle.MATERIAL_YOU) {
+    private fun launch(style: ThemeStyle = ThemeStyle.MATERIAL_YOU, name: String = style.name) {
+        testName = name
         SettingsRepository.update { it.copy(themeStyle = style) }
         val service = Robolectric.buildService(KeyboardService::class.java).create().get()
         rule.runOnUiThread {
@@ -41,18 +40,35 @@ class KeyboardServiceTest {
         rule.mainClock.advanceTimeBy(500)
     }
 
+    private var shot = 0
+    private var testName = "kb"
+
+    /** Рисуем окно в картинку (настоящая отрисовка) и сохраняем PNG для артефакта CI. */
+    private fun snapshot(tag: String = "") {
+        rule.runOnUiThread {
+            val root = rule.activity.window.decorView
+            if (root.width == 0 || root.height == 0) return@runOnUiThread
+            val bmp = android.graphics.Bitmap.createBitmap(root.width, root.height, android.graphics.Bitmap.Config.ARGB_8888)
+            root.draw(android.graphics.Canvas(bmp))
+            val dir = java.io.File("build/screens").apply { mkdirs() }
+            java.io.File(dir, "%s_%02d%s.png".format(testName, shot++, tag)).outputStream().use {
+                bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+    }
+
     private fun key(label: String) = rule.onAllNodesWithText(label, useUnmergedTree = true)[0]
 
     private fun holdAndRelease(label: String) {
         key(label).performTouchInput { down(center) }
         repeat(12) {
             rule.mainClock.advanceTimeBy(100)
-            rule.onRoot().captureToImage()
+            snapshot()
         }
         key(label).performTouchInput { up() }
         repeat(5) {
             rule.mainClock.advanceTimeBy(100)
-            rule.onRoot().captureToImage()
+            snapshot()
         }
     }
 
@@ -64,7 +80,7 @@ class KeyboardServiceTest {
         holdAndRelease("й")
         key("в").performClick()
         rule.mainClock.advanceTimeBy(300)
-        rule.onRoot().captureToImage()
+        snapshot()
     }
 
     @Test
@@ -79,6 +95,6 @@ class KeyboardServiceTest {
         launch()
         key("ж").performTouchInput { longClick(durationMillis = 1000) }
         rule.mainClock.advanceTimeBy(1000)
-        rule.onRoot().captureToImage()
+        snapshot()
     }
 }
