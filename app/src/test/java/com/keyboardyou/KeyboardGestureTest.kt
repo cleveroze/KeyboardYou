@@ -53,7 +53,7 @@ class KeyboardGestureTest {
         key(label).performTouchInput { down(center) }
         settle(ms)
         if (slide != 0f) {
-            key(label).performTouchInput { moveBy(Offset(width * slide, 0f)) }
+            key(label).performTouchInput { moveBy(Offset(slide, 0f)) }
             settle(100)
         }
         key(label).performTouchInput { up() }
@@ -87,7 +87,7 @@ class KeyboardGestureTest {
     @Test
     fun longPressAndSlideToDigit() {
         launch()
-        hold("е", slide = 1.2f)
+        hold("е", slide = 70f) // примерно на две клавиши вправо: е → ё → 5
         assertEquals("5", sink.text)
     }
 
