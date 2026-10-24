@@ -65,6 +65,7 @@ data class KeyboardSettings(
     val sound: Boolean = false,
     val soundVolume: Float = 0.4f,
     val animations: AnimationLevel = AnimationLevel.PLAYFUL,
+    val particles: Boolean = true,
     // Буфер обмена
     val clipboardHistory: Boolean = true,
     val clipboardLimit: Int = 40,
@@ -132,6 +133,7 @@ object SettingsRepository {
             sound = getBoolean("sound", d.sound),
             soundVolume = getFloat("soundVolume", d.soundVolume),
             animations = enum("animations", d.animations),
+            particles = getBoolean("particles", d.particles),
             clipboardHistory = getBoolean("clipboardHistory", d.clipboardHistory),
             clipboardLimit = getInt("clipboardLimit", d.clipboardLimit),
             clipboardSuggest = getBoolean("clipboardSuggest", d.clipboardSuggest),
@@ -173,6 +175,7 @@ object SettingsRepository {
             .putBoolean("sound", s.sound)
             .putFloat("soundVolume", s.soundVolume)
             .putString("animations", s.animations.name)
+            .putBoolean("particles", s.particles)
             .putBoolean("clipboardHistory", s.clipboardHistory)
             .putInt("clipboardLimit", s.clipboardLimit)
             .putBoolean("clipboardSuggest", s.clipboardSuggest)

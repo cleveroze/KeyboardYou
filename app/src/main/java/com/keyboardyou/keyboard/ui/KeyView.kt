@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -354,8 +355,20 @@ private fun KeyContent(key: Key, controller: KeyboardController, color: Color, p
                 }
             }
         }
-        KeyType.SHIFT -> ShiftIcon(controller.shift, color)
-        KeyType.BACKSPACE -> KeyIcon(Icons.AutoMirrored.Rounded.Backspace, color)
+        KeyType.SHIFT -> {
+            // Иконка подпрыгивает при смене состояния Shift.
+            val bounce = remember { androidx.compose.animation.core.Animatable(0f) }
+            LaunchedEffect(controller.shift) {
+                bounce.snapTo(1f)
+                bounce.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 500f))
+            }
+            Box(Modifier.graphicsLayer { translationY = -bounce.value * 6.dp.toPx(); scaleX = 1f + 0.15f * bounce.value; scaleY = 1f + 0.15f * bounce.value }) {
+                ShiftIcon(controller.shift, color)
+            }
+        }
+        KeyType.BACKSPACE -> Box(Modifier.graphicsLayer { translationX = -press * 4.dp.toPx() }) {
+            KeyIcon(Icons.AutoMirrored.Rounded.Backspace, color)
+        }
         KeyType.EMOJI -> KeyIcon(Icons.Rounded.EmojiEmotions, color)
         KeyType.LANGUAGE -> KeyIcon(Icons.Rounded.Language, color)
         KeyType.ENTER -> {
@@ -371,7 +384,7 @@ private fun KeyContent(key: Key, controller: KeyboardController, color: Color, p
                 targetState = if (controller.translatorOpen) Icons.Rounded.Check else icon,
                 transitionSpec = { (fadeIn() + slideInVertically { it / 2 }) togetherWith (fadeOut() + slideOutVertically { -it / 2 }) },
                 label = "enterIcon",
-            ) { KeyIcon(it, color) }
+            ) { Box(Modifier.graphicsLayer { translationX = press * 5.dp.toPx(); rotationZ = press * -8f }) { KeyIcon(it, color) } }
         }
         KeyType.SPACE -> {
             val label = if (controller.mode == Mode.ALPHA) controller.language.name else ""

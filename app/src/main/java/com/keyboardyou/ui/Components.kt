@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -75,7 +76,7 @@ class GroupScope {
 @Composable
 fun SettingsGroup(title: String? = null, build: GroupScope.() -> Unit) {
     val items = GroupScope().apply(build).items
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxWidth().enterAnimation().padding(horizontal = 16.dp)) {
         if (title != null) {
             Text(
                 title,
@@ -345,6 +346,7 @@ fun PressableCard(
     modifier: Modifier = Modifier,
     color: Color,
     shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(28.dp),
+    enterDelay: Int = 0,
     onClick: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -358,10 +360,27 @@ fun PressableCard(
         color = color,
         shape = activeShape,
         modifier = modifier
+            .enterAnimation(enterDelay)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(activeShape)
             .clickable(interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick),
     ) {
         Column(Modifier.padding(18.dp), content = content)
+    }
+}
+
+/** Появление элемента: всплывает снизу с пружинкой (один раз, при первом показе). */
+fun Modifier.enterAnimation(delayMs: Int = 0): Modifier = composed {
+    val v = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(delayMs.toLong())
+        v.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = 300f))
+    }
+    graphicsLayer {
+        val p = v.value
+        alpha = p.coerceIn(0f, 1f)
+        translationY = (1f - p) * 40.dp.toPx()
+        scaleX = 0.94f + 0.06f * p
+        scaleY = 0.94f + 0.06f * p
     }
 }

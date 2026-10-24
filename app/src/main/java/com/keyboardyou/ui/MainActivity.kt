@@ -191,6 +191,7 @@ private fun HomeScreen(open: (Screen) -> Unit) {
                             modifier = Modifier.weight(1f).height(150.dp),
                             color = container,
                             shape = RoundedCornerShape(if (index % 3 == 0) 36.dp else 26.dp),
+                            enterDelay = 60 * index,
                             onClick = { open(screen) },
                         ) {
                             IconBadge(

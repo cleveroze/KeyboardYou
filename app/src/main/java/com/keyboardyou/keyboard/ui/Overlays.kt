@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -38,6 +39,7 @@ import kotlin.math.roundToInt
 @Composable
 fun BoxScope.KeyOverlays(controller: KeyboardController) {
     Box(Modifier.matchParentSize()) {
+        controller.bursts.toList().forEach { b -> key("b" + b.id) { BurstView(b, controller) } }
         controller.preview?.let { p -> key(p.id) { PreviewBubble(p, controller) } }
         controller.altPopup?.let { AltPopupView(it, controller) }
     }
@@ -129,6 +131,49 @@ private fun AltPopupView(p: AltPopup, controller: KeyboardController) {
                     Text(option, style = style, color = if (selected) palette.accentText else palette.popupText)
                 }
             }
+        }
+    }
+}
+
+/** Искры-«печеньки» и кольцо-волна из нажатой клавиши. */
+@Composable
+private fun BurstView(b: com.keyboardyou.keyboard.Burst, controller: KeyboardController) {
+    val palette = LocalPalette.current
+    val settings = LocalKbSettings.current
+    val t = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        t.animateTo(1f, androidx.compose.animation.core.tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+        controller.bursts.removeAll { it.id == b.id }
+    }
+    val shape = settings.pressShape
+    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+        val p = t.value
+        val fade = (1f - p).coerceIn(0f, 1f)
+        // Кольцо-волна
+        drawCircle(
+            palette.accent.copy(alpha = 0.45f * fade),
+            radius = 10.dp.toPx() + 26.dp.toPx() * p,
+            center = androidx.compose.ui.geometry.Offset(b.x, b.y),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx() * fade + 0.5f),
+        )
+        // Частицы-формы
+        val count = 7
+        for (i in 0 until count) {
+            val angle = (i * 2 * Math.PI / count + (b.seed % 100) / 100.0).toFloat()
+            val dist = 14.dp.toPx() + 30.dp.toPx() * p * (0.8f + 0.4f * ((b.seed shr i) and 1))
+            val cx = b.x + kotlin.math.cos(angle) * dist
+            val cy = b.y + kotlin.math.sin(angle) * dist - 10.dp.toPx() * p
+            val r = 4.dp.toPx() * (1f - 0.5f * p)
+            val path = androidx.compose.ui.graphics.Path()
+            for (k in 0 until 24) {
+                val a = (2 * Math.PI * k / 24).toFloat()
+                val rr = r * shape.radius(a + p * 3f)
+                val x = cx + kotlin.math.cos(a) * rr
+                val y = cy + kotlin.math.sin(a) * rr
+                if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
+            drawPath(path, (if (i % 2 == 0) palette.accent else palette.action).copy(alpha = fade))
         }
     }
 }

@@ -132,7 +132,7 @@ class KeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegistry
             InputType.TYPE_TEXT_VARIATION_URI,
             InputType.TYPE_TEXT_VARIATION_FILTER,
         )
-        controller.onStartInput(kind, enterActionFor(info), password || incognito || noSuggest, autoCaps)
+        controller.onStartInput(kind, enterActionFor(info), password || incognito || noSuggest, autoCaps, animateIn = !restarting)
         captureClip()
     }
 

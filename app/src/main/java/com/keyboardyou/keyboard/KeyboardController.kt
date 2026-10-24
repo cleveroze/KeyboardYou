@@ -26,6 +26,8 @@ enum class Panel { KEYBOARD, EMOJI, CLIPBOARD, EDIT, LANG_PICKER }
 enum class PickerTarget { SOURCE, TARGET }
 
 data class KeyPreview(val id: Int, val label: String, val bounds: Rect)
+/** Вспышка частиц из нажатой клавиши. */
+data class Burst(val id: Int, val x: Float, val y: Float, val seed: Int)
 data class AltPopup(val key: Key, val bounds: Rect, val options: List<String>, val selected: Int)
 
 sealed interface Suggestion {
@@ -60,6 +62,11 @@ class KeyboardController(
 
     var currentWord by mutableStateOf("")
     val suggestions = mutableStateListOf<Suggestion>()
+
+    val bursts = mutableStateListOf<Burst>()
+    private var burstCounter = 0
+    /** Увеличивается при каждом появлении клавиатуры — ряды «въезжают» каскадом. */
+    var appearTick by mutableIntStateOf(0)
 
     /** Какая клавиша сейчас нажата в каждом ряду — для анимации соседей. */
     val pressedInRow = mutableStateMapOf<Int, Int>()
@@ -107,7 +114,8 @@ class KeyboardController(
 
     // ---------- Жизненный цикл поля ввода ----------
 
-    fun onStartInput(kind: FieldKind, action: EnterAction, privateField: Boolean, autoCaps: Boolean) {
+    fun onStartInput(kind: FieldKind, action: EnterAction, privateField: Boolean, autoCaps: Boolean, animateIn: Boolean = false) {
+        if (animateIn) appearTick++
         fieldKind = kind
         enterAction = action
         this.privateField = privateField
@@ -141,6 +149,12 @@ class KeyboardController(
                 else -> FeedbackKind.SPECIAL
             }
         )
+        if (settings.particles && settings.animations == com.keyboardyou.data.AnimationLevel.PLAYFUL &&
+            key.type in previewTypes && bounds.width > 0f
+        ) {
+            if (bursts.size > 8) bursts.removeAt(0)
+            bursts += Burst(++burstCounter, bounds.center.x, bounds.center.y, burstCounter * 7919)
+        }
         if (settings.keyPopup && key.type in previewTypes) {
             preview = KeyPreview(++previewCounter, displayLabel(key), bounds)
         }

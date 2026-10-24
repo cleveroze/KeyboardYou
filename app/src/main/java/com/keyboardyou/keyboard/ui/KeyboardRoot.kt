@@ -25,6 +25,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Dp
@@ -135,7 +138,26 @@ fun KeysArea(controller: KeyboardController) {
                 val side = ((maxUnits - total) / 2f).coerceAtLeast(0f)
                 // Короткие ряды центрируем, но крайние клавиши забирают пустое место
                 // себе как зону касания — промахнуться мимо них нельзя.
-                Row(Modifier.fillMaxWidth().height(settings.keyHeight.dp)) {
+                // Ряды въезжают снизу каскадом при появлении клавиатуры.
+                val enter = remember { androidx.compose.animation.core.Animatable(1f) }
+                LaunchedEffect(controller.appearTick) {
+                    if (controller.appearTick > 0 && settings.animations != AnimationLevel.OFF) {
+                        enter.snapTo(0f)
+                        kotlinx.coroutines.delay(rowIndex * 45L)
+                        enter.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.62f, stiffness = 420f))
+                    }
+                }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(settings.keyHeight.dp)
+                        .graphicsLayer {
+                            val v = enter.value
+                            translationY = (1f - v) * 36.dp.toPx()
+                            alpha = v.coerceIn(0f, 1f)
+                            scaleX = 0.92f + 0.08f * v
+                        }
+                ) {
                     row.forEachIndexed { i, key ->
                         val ps = if (i == 0) side else 0f
                         val pe = if (i == row.lastIndex) side else 0f

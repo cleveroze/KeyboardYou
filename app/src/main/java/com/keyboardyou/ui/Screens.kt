@@ -490,7 +490,13 @@ private fun LazyListScope.feedbackScreen(s: KeyboardSettings) {
     item {
         SettingsGroup("Анимации") { item {
             SegmentedRow("Уровень", AnimationLevel.entries, s.animations, label = { it.title }) { v -> set { it.copy(animations = v) } }
-        } }
+        }
+            item {
+                SwitchRow("Искры при наборе", "Частицы и волна из нажатой клавиши (при «Игривых»)", Icons.Rounded.AutoAwesome, s.particles) { v ->
+                    set { it.copy(particles = v) }
+                }
+            }
+        }
     }
     item {
         SettingsGroup("Вибрация") {
