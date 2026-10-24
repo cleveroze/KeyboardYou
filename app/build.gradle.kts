@@ -12,8 +12,10 @@ android {
         applicationId = "com.keyboardyou"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // В CI номер сборки попадает в версию — так видно, какая сборка установлена.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.0.$build"
     }
 
     buildTypes {

@@ -115,7 +115,7 @@ private fun AltPopupView(p: AltPopup, controller: KeyboardController) {
                 val s by animateFloatAsState(if (selected) 1f else 0f, spring(dampingRatio = 0.55f, stiffness = 700f), label = "alt")
                 Box(
                     Modifier
-                        .width((cell - 6.dp.toPx() / p.options.size).toDp())
+                        .width((cell - 6.dp.toPx() / p.options.size).coerceAtLeast(1f).toDp())
                         .fillMaxHeight()
                         .graphicsLayer { scaleX = 0.9f + 0.1f * s; scaleY = 0.9f + 0.1f * s }
                         .keySurface(

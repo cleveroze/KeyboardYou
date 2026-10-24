@@ -5,6 +5,7 @@ import android.view.inputmethod.EditorInfo
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -57,7 +58,8 @@ class KeyboardServiceTest {
         }
     }
 
-    private fun key(label: String) = rule.onAllNodesWithText(label, useUnmergedTree = true)[0]
+    private fun key(label: String) =
+        rule.onAllNodes(hasText(label, ignoreCase = true), useUnmergedTree = true)[0]
 
     private fun holdAndRelease(label: String) {
         key(label).performTouchInput { down(center) }

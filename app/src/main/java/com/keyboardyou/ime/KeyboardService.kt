@@ -34,6 +34,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.keyboardyou.data.ClipboardRepository
+import com.keyboardyou.data.CrashLog
 import com.keyboardyou.data.SettingsRepository
 import com.keyboardyou.data.WordRepository
 import com.keyboardyou.data.ThemeStyle
@@ -82,6 +83,7 @@ class KeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegistry
             getSystemService(VIBRATOR_SERVICE) as? Vibrator
         }
         LocalFeedback.feedback = { feedback(FeedbackKind.SPECIAL) }
+        CrashLog.startWatchdog(this)
     }
 
     override fun onCreateInputView(): View {
@@ -145,6 +147,7 @@ class KeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegistry
     override fun onDestroy() {
         clipboard?.removePrimaryClipChangedListener(clipListener)
         LocalFeedback.feedback = null
+        CrashLog.stopWatchdog()
         scope.cancel()
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         store.clear()

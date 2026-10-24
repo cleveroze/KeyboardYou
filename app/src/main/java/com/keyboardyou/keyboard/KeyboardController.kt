@@ -186,6 +186,7 @@ class KeyboardController(
             }
             else -> Unit
         }
+        if (bounds.width <= 1f || bounds.height <= 1f) return false
         val options = key.alternates.map { if (shift != ShiftState.OFF && mode == Mode.ALPHA) it.uppercase() else it }
         if (options.isEmpty()) return false
         preview = null
@@ -211,13 +212,13 @@ class KeyboardController(
         typeChar(popup.options[popup.selected])
     }
 
-    fun popupCellWidth(p: AltPopup): Float = p.bounds.width.coerceAtLeast(1f).coerceAtMost(p.bounds.height * 1.1f)
+    fun popupCellWidth(p: AltPopup): Float = minOf(p.bounds.width, p.bounds.height * 1.1f).coerceAtLeast(1f)
 
     /** Левая граница всплывающего ряда альтернатив (в координатах корня клавиатуры). */
     fun popupStart(p: AltPopup): Float {
         val total = popupCellWidth(p) * p.options.size
         val rootWidth = rootCoordinates?.size?.width?.toFloat() ?: Float.MAX_VALUE
-        return (p.bounds.left).coerceAtMost(rootWidth - total - 4f).coerceAtLeast(4f)
+        return p.bounds.left.coerceAtMost(rootWidth - total - 4f).coerceAtLeast(0f)
     }
 
     fun onSpaceSwipe(steps: Int) {

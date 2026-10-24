@@ -165,6 +165,7 @@ private fun HomeScreen(open: (Screen) -> Unit) {
                 SetupCard(enabled, selected)
             }
         }
+        item { CrashCard() }
         item {
             OutlinedTextField(
                 value = test,
@@ -239,7 +240,7 @@ private fun Hero() {
         }
         Spacer(Modifier.height(14.dp))
         Text(
-            "Выбирай свой шрифт, цвет и формы клавиш — клавиатура становится твоей.",
+            "Выбирай свой шрифт, цвет и формы клавиш — клавиатура становится твоей.\nВерсия ${com.keyboardyou.BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -283,6 +284,38 @@ private fun SetupStep(n: Int, text: String, done: Boolean, enabledButton: Boolea
         if (!done) {
             if (n == 1) Button(onClick = onClick) { Text("Включить") }
             else FilledTonalButton(onClick = onClick, enabled = enabledButton) { Text("Выбрать") }
+        }
+    }
+}
+
+@Composable
+private fun CrashCard() {
+    val context = LocalContext.current
+    var text by remember { mutableStateOf(com.keyboardyou.data.CrashLog.read(context)) }
+    val crash = text ?: return
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Text("Клавиатура недавно упала", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onErrorContainer)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                crash.lineSequence().take(8).joinToString("\n"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                maxLines = 8,
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("crash", crash))
+                    android.widget.Toast.makeText(context, "Скопировано — отправьте разработчику", android.widget.Toast.LENGTH_SHORT).show()
+                }) { Text("Скопировать отчёт") }
+                FilledTonalButton(onClick = { com.keyboardyou.data.CrashLog.clear(context); text = null }) { Text("Скрыть") }
+            }
         }
     }
 }
