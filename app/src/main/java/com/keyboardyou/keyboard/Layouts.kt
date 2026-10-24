@@ -62,9 +62,10 @@ object Layouts {
         lang.rows.forEachIndexed { rowIndex, row ->
             val keys = row.mapIndexed { i, c ->
                 val s = c.toString()
+                // Сначала буквенные варианты (е → ё), потом цифра верхнего ряда.
                 val alts = buildList {
-                    if (rowIndex == 0 && !numberRow && i < 10) add(digits[i].toString())
                     addAll(lang.extra[s].orEmpty())
+                    if (rowIndex == 0 && !numberRow && i < 10) add(digits[i].toString())
                 }
                 Key(s, alternates = alts, hint = if (hints) alts.firstOrNull() else null)
             }

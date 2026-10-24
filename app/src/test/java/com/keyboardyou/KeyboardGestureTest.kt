@@ -64,7 +64,7 @@ class KeyboardGestureTest {
         launch()
         key("е").performTouchInput { longClick(durationMillis = 900) }
         rule.waitForIdle()
-        assertTrue("got '${sink.text}'", sink.text.lowercase() in setOf("ё", "е"))
+        assertEquals("ё", sink.text.lowercase())
         key("ы").performClick()
         rule.waitForIdle()
         assertTrue(sink.text.lowercase().endsWith("ы"))
