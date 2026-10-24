@@ -21,8 +21,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build release APK
-        run: ./gradlew --no-daemon assembleRelease
+      - name: Test and build release APK
+        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
 
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk KeyboardYou.apk
