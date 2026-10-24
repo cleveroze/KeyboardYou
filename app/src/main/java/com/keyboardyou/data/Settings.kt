@@ -52,6 +52,8 @@ data class KeyboardSettings(
     val showHints: Boolean = true,
     val keyPopup: Boolean = true,
     val suggestions: Boolean = true,
+    val autocorrect: Boolean = true,
+    val showEmojiKey: Boolean = false,
     val autoCapitalize: Boolean = true,
     val doubleSpacePeriod: Boolean = true,
     val spaceCursor: Boolean = true,
@@ -117,6 +119,8 @@ object SettingsRepository {
             showHints = getBoolean("showHints", d.showHints),
             keyPopup = getBoolean("keyPopup", d.keyPopup),
             suggestions = getBoolean("suggestions", d.suggestions),
+            autocorrect = getBoolean("autocorrect", d.autocorrect),
+            showEmojiKey = getBoolean("showEmojiKey", d.showEmojiKey),
             autoCapitalize = getBoolean("autoCapitalize", d.autoCapitalize),
             doubleSpacePeriod = getBoolean("doubleSpacePeriod", d.doubleSpacePeriod),
             spaceCursor = getBoolean("spaceCursor", d.spaceCursor),
@@ -157,6 +161,8 @@ object SettingsRepository {
             .putBoolean("showHints", s.showHints)
             .putBoolean("keyPopup", s.keyPopup)
             .putBoolean("suggestions", s.suggestions)
+            .putBoolean("autocorrect", s.autocorrect)
+            .putBoolean("showEmojiKey", s.showEmojiKey)
             .putBoolean("autoCapitalize", s.autoCapitalize)
             .putBoolean("doubleSpacePeriod", s.doubleSpacePeriod)
             .putBoolean("spaceCursor", s.spaceCursor)

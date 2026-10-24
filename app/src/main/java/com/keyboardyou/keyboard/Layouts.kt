@@ -56,7 +56,7 @@ object Layouts {
 
     fun numberRow(): List<Key> = digits.mapIndexed { i, c -> Key(c.toString(), alternates = numberRowAlternates[i], hint = null) }
 
-    fun alpha(lang: Language, numberRow: Boolean, hints: Boolean): KeyboardLayout {
+    fun alpha(lang: Language, numberRow: Boolean, hints: Boolean, emojiKey: Boolean = false): KeyboardLayout {
         val rows = mutableListOf<List<Key>>()
         if (numberRow) rows += numberRow()
         lang.rows.forEachIndexed { rowIndex, row ->
@@ -81,15 +81,15 @@ object Layouts {
                 else -> keys
             }
         }
-        rows += bottomRow(alpha = true)
+        rows += bottomRow(alpha = true, emoji = emojiKey)
         return KeyboardLayout(rows)
     }
 
-    private fun bottomRow(alpha: Boolean): List<Key> = listOf(
+    private fun bottomRow(alpha: Boolean, emoji: Boolean = true): List<Key> = listOfNotNull(
         if (alpha) Key("?123", KeyType.SYMBOLS, 1.5f) else Key("ABC", KeyType.ALPHA, 1.5f),
         Key(",", KeyType.COMMA, 1f, alternates = listOf(";", ":", "\"", "'", "/"), hint = null),
-        Key("emoji", KeyType.EMOJI, 1f),
-        Key("space", KeyType.SPACE, 4f),
+        if (emoji) Key("emoji", KeyType.EMOJI, 1f) else null,
+        Key("space", KeyType.SPACE, if (emoji) 4f else 5f),
         Key(".", KeyType.PERIOD, 1f, alternates = listOf("!", "?", "…", ",", "-", "@", "#"), hint = null),
         Key("enter", KeyType.ENTER, 1.5f),
     )

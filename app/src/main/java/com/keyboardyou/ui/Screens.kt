@@ -48,6 +48,8 @@ import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Dialpad
+import androidx.compose.material.icons.rounded.EmojiEmotions
+import androidx.compose.material.icons.rounded.Spellcheck
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.SpaceBar
@@ -415,12 +417,27 @@ private fun LazyListScope.typingScreen(s: KeyboardSettings) {
     item {
         SettingsGroup("Подсказки") {
             item { SwitchRow("Подсказки слов", "Строка предложений над клавиатурой", Icons.Rounded.Lightbulb, s.suggestions) { v -> set { it.copy(suggestions = v) } } }
+            item {
+                SwitchRow(
+                    "Автоисправление",
+                    "Исправляет опечатки при пробеле и учится на ваших словах. ⌫ сразу после исправления — отменить",
+                    Icons.Rounded.Spellcheck,
+                    s.autocorrect,
+                ) { v -> set { it.copy(autocorrect = v) } }
+            }
             item { LearnedWordsRow() }
         }
     }
     item {
         SettingsGroup("Умный ввод") {
-            item { SwitchRow("Заглавная в начале предложения", null, Icons.Rounded.AutoAwesome, s.autoCapitalize) { v -> set { it.copy(autoCapitalize = v) } } }
+            item {
+                SegmentedRow(
+                    "Заглавные буквы",
+                    listOf(true, false),
+                    s.autoCapitalize,
+                    label = { if (it) "Автоматически" else "Только строчные" },
+                ) { v -> set { it.copy(autoCapitalize = v) } }
+            }
             item { SwitchRow("Точка двойным пробелом", null, Icons.Rounded.SpaceBar, s.doubleSpacePeriod) { v -> set { it.copy(doubleSpacePeriod = v) } } }
             item { SwitchRow("Курсор свайпом по пробелу", null, Icons.Rounded.TouchApp, s.spaceCursor) { v -> set { it.copy(spaceCursor = v) } } }
         }
@@ -429,6 +446,7 @@ private fun LazyListScope.typingScreen(s: KeyboardSettings) {
         SettingsGroup("Клавиши") {
             item { SwitchRow("Ряд цифр", "Отдельный ряд 1–0 сверху", Icons.Rounded.Dialpad, s.showNumberRow) { v -> set { it.copy(showNumberRow = v) } } }
             item { SwitchRow("Подсказки символов", "Маленькие цифры и буквы в углу клавиш", Icons.Rounded.Visibility, s.showHints) { v -> set { it.copy(showHints = v) } } }
+            item { SwitchRow("Кнопка эмодзи на буквах", "Иначе эмодзи — в верхней панели ⊞", Icons.Rounded.EmojiEmotions, s.showEmojiKey) { v -> set { it.copy(showEmojiKey = v) } } }
             item { SwitchRow("Всплывающая буква", "Увеличенная клавиша над пальцем", Icons.Rounded.Keyboard, s.keyPopup) { v -> set { it.copy(keyPopup = v) } } }
             item { SliderRow("Долгое нажатие", s.longPressDelay.toFloat(), 150f..700f, icon = Icons.Rounded.Timer, label = { "${it.roundToInt()} мс" }) { v -> set { it.copy(longPressDelay = v.roundToInt()) } } }
         }

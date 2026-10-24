@@ -32,7 +32,12 @@ sealed interface Suggestion {
     data class Word(override val text: String, val primary: Boolean = false) : Suggestion
     data class Typed(override val text: String) : Suggestion
     data class Clip(override val text: String) : Suggestion
+    /** Отмена последнего автоисправления. */
+    data class Revert(override val text: String) : Suggestion
 }
+
+/** Что было исправлено: исходное слово, исправление и разделитель после него. */
+data class Correction(val original: String, val corrected: String, val separator: String)
 
 class KeyboardController(
     private val scope: CoroutineScope,
@@ -74,6 +79,8 @@ class KeyboardController(
     private var previewCounter = 0
     private var lastShiftTap = 0L
     private var lastSpaceTap = 0L
+    var lastCorrection by mutableStateOf<Correction?>(null)
+        private set
 
     val languages: List<Language> get() = settings.languages.map { Layouts.language(it) }.ifEmpty { listOf(Layouts.languages.first()) }
     val language: Language get() = languages[languageIndex.coerceIn(0, languages.lastIndex)]
@@ -81,7 +88,7 @@ class KeyboardController(
     fun layout(): KeyboardLayout {
         val s = settings
         return when (mode) {
-            Mode.ALPHA -> Layouts.alpha(language, s.showNumberRow, s.showHints)
+            Mode.ALPHA -> Layouts.alpha(language, s.showNumberRow, s.showHints, s.showEmojiKey)
             Mode.SYMBOLS -> Layouts.symbols()
             Mode.MORE_SYMBOLS -> Layouts.moreSymbols()
             Mode.NUMPAD -> Layouts.numpad()
@@ -229,13 +236,15 @@ class KeyboardController(
             translatorInput += text
             scheduleTranslate()
         } else {
-            if (text.length == 1 && !text[0].isLetterOrDigit() && currentWord.length > 1 && !privateField) {
-                WordRepository.learn(currentWord)
-            }
+            val separator = text.length == 1 && text[0] in wordSeparators
+            val correction = if (separator) finishWord() else null
+            lastCorrection = null
             sink.commit(text)
+            if (correction != null) lastCorrection = correction.copy(separator = text)
         }
         if (shift == ShiftState.ONCE) shift = ShiftState.OFF
         if (mode == Mode.SYMBOLS && text == "'") mode = Mode.ALPHA
+        if (text.length == 1 && text[0].isLetterOrDigit()) lastCorrection = null
         refresh()
     }
 
@@ -254,8 +263,10 @@ class KeyboardController(
             sink.commit(". ")
             lastSpaceTap = 0
         } else {
-            if (currentWord.length > 1 && !privateField) WordRepository.learn(currentWord)
+            val correction = finishWord()
+            lastCorrection = null
             sink.commit(" ")
+            if (correction != null) lastCorrection = correction.copy(separator = " ")
             lastSpaceTap = now
         }
         if (mode == Mode.SYMBOLS || mode == Mode.MORE_SYMBOLS) {
@@ -272,8 +283,44 @@ class KeyboardController(
             }
             return
         }
+        // ⌫ сразу после автоисправления возвращает исходное слово.
+        if (revertCorrection()) return
+        lastCorrection = null
         sink.deleteBackward()
         refresh()
+    }
+
+    /**
+     * Слово закончено (пробел или знак препинания): автоисправляем и учимся.
+     * Возвращает сделанное исправление, если оно было.
+     */
+    private fun finishWord(): Correction? {
+        val word = currentWord
+        if (word.isEmpty()) return null
+        val s = settings
+        if (privateField || fieldKind != FieldKind.TEXT) return null
+        val fixed = if (s.autocorrect) WordRepository.correct(word, language.code) else null
+        return if (fixed != null && fixed != word) {
+            sink.deleteBefore(word.length)
+            sink.commit(fixed)
+            WordRepository.learn(fixed)
+            Correction(word, fixed, "")
+        } else {
+            WordRepository.learn(word)
+            null
+        }
+    }
+
+    fun revertCorrection(): Boolean {
+        val c = lastCorrection ?: return false
+        lastCorrection = null
+        val tail = c.corrected + c.separator
+        if (!sink.textBefore(tail.length).equals(tail)) return false
+        sink.deleteBefore(tail.length)
+        sink.commit(c.original + c.separator)
+        WordRepository.forgetCorrection(c.original)
+        refresh()
+        return true
     }
 
     private fun enter() {
@@ -327,14 +374,21 @@ class KeyboardController(
     }
 
     fun pickSuggestion(s: Suggestion) {
+        if (s is Suggestion.Revert) {
+            revertCorrection()
+            sink.feedback(FeedbackKind.SPECIAL)
+            return
+        }
+        lastCorrection = null
         when (s) {
+            is Suggestion.Revert -> Unit
             is Suggestion.Clip -> {
                 sink.commit(s.text)
             }
             is Suggestion.Word, is Suggestion.Typed -> {
                 if (currentWord.isNotEmpty()) sink.deleteBefore(currentWord.length)
                 sink.commit(s.text + " ")
-                if (!privateField) WordRepository.learn(s.text)
+                if (!privateField) WordRepository.learn(s.text, if (s is Suggestion.Typed) 2 else 1)
             }
         }
         sink.feedback(FeedbackKind.SPECIAL)
@@ -363,26 +417,28 @@ class KeyboardController(
         val s = settings
         if (!s.suggestions || privateField || fieldKind != FieldKind.TEXT || translatorOpen) return
         if (currentWord.isEmpty()) {
+            lastCorrection?.let { suggestions += Suggestion.Revert(it.original) }
             if (s.clipboardSuggest) {
                 ClipboardRepository.recent()?.let { suggestions += Suggestion.Clip(it.text) }
             }
             return
         }
-        val words = WordRepository.suggest(currentWord, language.code, 3)
-        val typed = Suggestion.Typed(currentWord)
-        when {
-            words.isEmpty() -> suggestions += typed
-            else -> {
-                suggestions += typed
-                suggestions += Suggestion.Word(words[0], primary = true)
-                words.drop(1).take(1).forEach { suggestions += Suggestion.Word(it) }
-            }
-        }
+        val code = language.code
+        // Если слово будет исправлено — показываем исправление главной подсказкой.
+        val completions = WordRepository.suggest(currentWord, code, 3)
+        val fix = if (s.autocorrect && completions.isEmpty()) WordRepository.correct(currentWord, code) else null
+        val words = (listOfNotNull(fix) + completions).distinct()
+        suggestions += Suggestion.Typed(currentWord)
+        words.take(2).forEachIndexed { i, w -> suggestions += Suggestion.Word(w, primary = i == 0) }
     }
 
     private fun updateAutoCaps() {
         if (mode != Mode.ALPHA || shift == ShiftState.LOCKED) return
-        if (!settings.autoCapitalize || !allowAutoCaps || privateField || translatorOpen) {
+        if (!settings.autoCapitalize) {
+            if (shift == ShiftState.ONCE) shift = ShiftState.OFF
+            return
+        }
+        if (!allowAutoCaps || privateField || translatorOpen) {
             if (translatorOpen && translatorInput.isEmpty() && settings.autoCapitalize) shift = ShiftState.ONCE
             return
         }
@@ -497,5 +553,6 @@ class KeyboardController(
     companion object {
         private val previewTypes = setOf(KeyType.CHAR, KeyType.COMMA, KeyType.PERIOD)
         private val sentenceEnds = setOf('.', '!', '?', '…')
+        private val wordSeparators = setOf('.', ',', '!', '?', ';', ':', '…', ')', '"', '»')
     }
 }

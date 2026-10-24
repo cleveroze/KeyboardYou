@@ -217,6 +217,7 @@ private fun Suggestions(controller: KeyboardController) {
                         Text(
                             when (s) {
                                 is Suggestion.Typed -> "«$text»"
+                                is Suggestion.Revert -> "↶ $text"
                                 is Suggestion.Clip -> text.replace('\n', ' ')
                                 else -> text
                             },
