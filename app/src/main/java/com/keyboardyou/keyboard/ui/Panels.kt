@@ -82,6 +82,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.keyboardyou.data.ClipboardRepository
 import com.keyboardyou.data.EmojiData
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.rounded.Search
+import com.keyboardyou.data.EmojiStore
 import com.keyboardyou.keyboard.Key
 import com.keyboardyou.keyboard.KeyType
 import com.keyboardyou.keyboard.KeyboardController
@@ -161,14 +168,20 @@ private fun PanelHeader(title: String, controller: KeyboardController, actions: 
 
 // ---------------- Эмодзи ----------------
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EmojiPanel(controller: KeyboardController) {
     val palette = LocalPalette.current
-    val context = LocalContext.current
+    val settings = LocalKbSettings.current
+    val style = LocalKeyTextStyle.current
     val scope = rememberCoroutineScope()
-    val recents = remember { EmojiData.recents(context) }
-    val sections = remember(recents) {
+    // Недавние берём на момент открытия, чтобы сетка не прыгала под пальцем.
+    val recents = remember { EmojiStore.recents.value }
+    val favorites by EmojiStore.favorites.collectAsState()
+    var selected by remember { mutableStateOf<String?>(null) }
+    val sections = remember(recents, favorites) {
         buildList {
+            if (favorites.isNotEmpty()) add(com.keyboardyou.data.EmojiCategory("⭐", "Избранное", favorites))
             if (recents.isNotEmpty()) add(com.keyboardyou.data.EmojiCategory("🕘", "Недавние", recents))
             addAll(EmojiData.categories)
         }
@@ -179,68 +192,200 @@ fun EmojiPanel(controller: KeyboardController) {
         sections.map { s -> i.also { i += 1 + s.emojis.size } }
     }
     val gridState = rememberLazyGridState()
-    val current by remember {
+    val current by remember(headerIndices) {
         derivedStateOf { headerIndices.indexOfLast { it <= gridState.firstVisibleItemIndex }.coerceAtLeast(0) }
     }
-    Column(Modifier.fillMaxSize()) {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(42.dp),
-            state = gridState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 4.dp),
-        ) {
-            sections.forEach { section ->
-                item(span = { GridItemSpan(maxLineSpan) }, key = "h_" + section.title) {
-                    Text(
-                        section.title,
-                        style = LocalKeyTextStyle.current.copy(fontSize = 12.sp),
-                        color = palette.keyHint,
-                        modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 2.dp),
-                    )
-                }
-                items(section.emojis, key = { section.title + it }) { emoji ->
-                    EmojiCell(emoji) {
-                        controller.commitEmoji(emoji)
-                        EmojiData.remember(context, emoji)
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            // Поиск по словам
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                    .height(36.dp)
+                    .keySurface(palette.key, RoundedCornerShape(50), palette, settings.keyBorders)
+                    .clickable { controller.openEmojiSearch() }
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Search, null, tint = palette.keyHint, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Поиск эмодзи: сердце, огонь, кот…", style = style.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium), color = palette.keyHint, maxLines = 1)
+            }
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(42.dp),
+                state = gridState,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 4.dp),
+            ) {
+                sections.forEach { section ->
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "h_" + section.title) {
+                        Text(
+                            section.title,
+                            style = style.copy(fontSize = 12.sp),
+                            color = palette.keyHint,
+                            modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 2.dp),
+                        )
+                    }
+                    items(section.emojis, key = { section.title + it }) { emoji ->
+                        EmojiCell(
+                            emoji,
+                            highlighted = emoji == selected,
+                            onLongClick = {
+                                controller.sink.feedback(com.keyboardyou.keyboard.FeedbackKind.SPECIAL)
+                                selected = emoji
+                            },
+                        ) {
+                            controller.commitEmoji(emoji)
+                            EmojiStore.use(emoji)
+                            selected = null
+                        }
                     }
                 }
             }
-        }
-        Row(Modifier.fillMaxWidth().height(46.dp), verticalAlignment = Alignment.CenterVertically) {
-            PanelButton(Modifier.width(64.dp).fillMaxHeight(), label = "ABC") { controller.closePanel() }
-            LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                itemsIndexed(sections) { index, section ->
-                    val selected = index == current
-                    val s by animateFloatAsState(if (selected) 1f else 0f, spring(dampingRatio = 0.5f), label = "tab")
-                    Box(
-                        Modifier
-                            .size(38.dp)
-                            .graphicsLayer { scaleX = 0.85f + 0.15f * s; scaleY = 0.85f + 0.15f * s }
-                            .keySurface(palette.accent.copy(alpha = (s * palette.accent.alpha).coerceIn(0f, 1f)), PolarShape(LocalKbSettings.current.accentShape), palette.copy(glass = false), false)
-                            .clickable { scope.launch { gridState.animateScrollToItem(headerIndices[index]) } },
-                        contentAlignment = Alignment.Center,
-                    ) { Text(section.icon, fontSize = 18.sp) }
+            Row(Modifier.fillMaxWidth().height(46.dp), verticalAlignment = Alignment.CenterVertically) {
+                PanelButton(Modifier.width(64.dp).fillMaxHeight(), label = "ABC") { controller.closePanel() }
+                LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    itemsIndexed(sections) { index, section ->
+                        val isCurrent = index == current
+                        val s by animateFloatAsState(if (isCurrent) 1f else 0f, spring(dampingRatio = 0.5f), label = "tab")
+                        Box(
+                            Modifier
+                                .size(38.dp)
+                                .graphicsLayer { scaleX = 0.85f + 0.15f * s; scaleY = 0.85f + 0.15f * s }
+                                .keySurface(palette.accent.copy(alpha = (s * palette.accent.alpha).coerceIn(0f, 1f)), PolarShape(settings.accentShape), palette.copy(glass = false), false)
+                                .clickable { scope.launch { gridState.animateScrollToItem(headerIndices[index]) } },
+                            contentAlignment = Alignment.Center,
+                        ) { Text(section.icon, fontSize = 18.sp) }
+                    }
+                }
+                PanelButton(Modifier.width(64.dp).fillMaxHeight(), icon = Icons.AutoMirrored.Rounded.Backspace) {
+                    controller.onKeyTap(Key("del", KeyType.BACKSPACE))
                 }
             }
-            PanelButton(Modifier.width(64.dp).fillMaxHeight(), icon = Icons.AutoMirrored.Rounded.Backspace) {
-                controller.onKeyTap(Key("del", KeyType.BACKSPACE))
+        }
+        // Долгое нажатие на эмодзи — панель «в избранное».
+        androidx.compose.animation.AnimatedVisibility(
+            visible = selected != null,
+            enter = androidx.compose.animation.slideInVertically { it } + fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically { it } + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 50.dp, start = 8.dp, end = 8.dp),
+        ) {
+            val emoji = selected ?: favorites.firstOrNull() ?: ""
+            val fav = emoji in favorites
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .shadow(8.dp, RoundedCornerShape(26.dp), clip = false)
+                    .keySurface(palette.popup, RoundedCornerShape(26.dp), palette, settings.keyBorders)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(emoji, fontSize = 28.sp, modifier = Modifier.padding(horizontal = 8.dp))
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .keySurface(if (fav) palette.special else palette.accent, RoundedCornerShape(50), palette, false)
+                        .clickable {
+                            EmojiStore.toggleFavorite(emoji)
+                            controller.sink.feedback(com.keyboardyou.keyboard.FeedbackKind.SPECIAL)
+                            selected = null
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        if (fav) "Убрать из избранного" else "⭐ В избранное",
+                        style = style.copy(fontSize = 14.sp),
+                        color = if (fav) palette.specialText else palette.accentText,
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    Modifier.size(38.dp).keySurface(palette.special, PolarShape(settings.accentShape), palette, false).clickable { selected = null },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Close, null, tint = palette.specialText, modifier = Modifier.size(18.dp)) }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun EmojiCell(emoji: String, onClick: () -> Unit) {
+private fun EmojiCell(emoji: String, highlighted: Boolean = false, onLongClick: () -> Unit = {}, onClick: () -> Unit) {
+    val palette = LocalPalette.current
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 1.45f else 1f, spring(dampingRatio = 0.4f, stiffness = 600f), label = "emoji")
+    val scale by animateFloatAsState(if (pressed || highlighted) 1.4f else 1f, spring(dampingRatio = 0.4f, stiffness = 600f), label = "emoji")
     Box(
         Modifier
             .aspectRatio(1f)
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+            .then(
+                if (highlighted) Modifier.keySurface(palette.accent.copy(alpha = 0.35f), PolarShape(LocalKbSettings.current.accentShape), palette.copy(glass = false), false)
+                else Modifier
+            )
+            .combinedClickable(interactionSource = interaction, indication = null, onClick = onClick, onLongClick = onLongClick),
         contentAlignment = Alignment.Center,
     ) { Text(emoji, fontSize = 26.sp) }
+}
+
+/** Строка поиска эмодзи над буквами: печатаете — внизу сразу результаты. */
+@Composable
+fun EmojiSearchBar(controller: KeyboardController) {
+    val palette = LocalPalette.current
+    val settings = LocalKbSettings.current
+    val style = LocalKeyTextStyle.current
+    val query = controller.emojiQuery
+    val results = remember(query) { EmojiStore.search(query) }
+    val recents by EmojiStore.recents.collectAsState()
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
+        Row(Modifier.fillMaxWidth().height(38.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .keySurface(palette.key, RoundedCornerShape(50), palette, true)
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Search, null, tint = palette.accent, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (query.isEmpty()) "Ищите словами: смех, кот, огонь…" else query + "▏",
+                    style = style.copy(fontSize = 15.sp, fontWeight = if (query.isEmpty()) FontWeight.Medium else FontWeight.Bold),
+                    color = if (query.isEmpty()) palette.keyHint else palette.keyText,
+                    maxLines = 1,
+                )
+            }
+            Box(
+                Modifier.padding(start = 6.dp).size(36.dp)
+                    .keySurface(palette.special, PolarShape(settings.accentShape), palette, false)
+                    .clickable { controller.closeEmojiSearch() },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Close, null, tint = palette.specialText, modifier = Modifier.size(18.dp)) }
+        }
+        val shown = if (query.isBlank()) recents else results
+        Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.CenterStart) {
+            if (shown.isEmpty()) {
+                Text(
+                    if (query.isBlank()) "Начните печатать" else "Ничего не нашлось 🤷",
+                    style = style.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                    color = palette.keyHint,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            } else {
+                LazyRow(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                    items(shown, key = { it }) { emoji ->
+                        Box(Modifier.size(46.dp).animateItem()) {
+                            EmojiCell(emoji) { controller.commitSearchedEmoji(emoji) }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ---------------- Буфер обмена ----------------

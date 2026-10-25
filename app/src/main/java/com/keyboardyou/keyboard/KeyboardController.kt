@@ -76,6 +76,10 @@ class KeyboardController(
     /** Счётчик для «вспышки» названия языка на пробеле. */
     var languageFlash by mutableIntStateOf(0)
 
+    // Поиск эмодзи: буквы с клавиатуры идут в строку поиска.
+    var emojiSearchOpen by mutableStateOf(false)
+    var emojiQuery by mutableStateOf("")
+
     // Переводчик
     var translatorOpen by mutableStateOf(false)
     var translatorInput by mutableStateOf("")
@@ -116,6 +120,8 @@ class KeyboardController(
 
     fun onStartInput(kind: FieldKind, action: EnterAction, privateField: Boolean, autoCaps: Boolean, animateIn: Boolean = false) {
         if (animateIn) appearTick++
+        emojiSearchOpen = false
+        emojiQuery = ""
         fieldKind = kind
         enterAction = action
         this.privateField = privateField
@@ -251,6 +257,11 @@ class KeyboardController(
     // ---------- Логика ввода ----------
 
     private fun typeChar(text: String) {
+        if (emojiSearchOpen) {
+            emojiQuery += text.lowercase()
+            if (shift == ShiftState.ONCE) shift = ShiftState.OFF
+            return
+        }
         if (translatorOpen) {
             translatorInput += text
             scheduleTranslate()
@@ -268,6 +279,10 @@ class KeyboardController(
     }
 
     private fun typeSpace() {
+        if (emojiSearchOpen) {
+            if (emojiQuery.isNotEmpty() && !emojiQuery.endsWith(" ")) emojiQuery += " "
+            return
+        }
         if (translatorOpen) {
             translatorInput += " "
             scheduleTranslate()
@@ -295,6 +310,10 @@ class KeyboardController(
     }
 
     private fun backspace() {
+        if (emojiSearchOpen) {
+            if (emojiQuery.isNotEmpty()) emojiQuery = emojiQuery.dropLast(1) else closeEmojiSearch()
+            return
+        }
         if (translatorOpen) {
             if (translatorInput.isNotEmpty()) {
                 translatorInput = translatorInput.dropLast(1)
@@ -343,6 +362,10 @@ class KeyboardController(
     }
 
     private fun enter() {
+        if (emojiSearchOpen) {
+            closeEmojiSearch()
+            return
+        }
         if (translatorOpen) {
             insertTranslation()
             return
@@ -377,6 +400,31 @@ class KeyboardController(
 
     fun closePanel() {
         panel = Panel.KEYBOARD
+    }
+
+    fun openEmojiSearch() {
+        translatorOpen = false
+        emojiQuery = ""
+        emojiSearchOpen = true
+        panel = Panel.KEYBOARD
+        mode = Mode.ALPHA
+        shift = ShiftState.OFF
+        toolbarOpen = false
+        refresh()
+    }
+
+    fun closeEmojiSearch(backToPanel: Boolean = true) {
+        emojiSearchOpen = false
+        emojiQuery = ""
+        if (backToPanel) panel = Panel.EMOJI
+        refresh()
+    }
+
+    /** Эмодзи из поиска: вставляем в поле и запоминаем как недавний. */
+    fun commitSearchedEmoji(emoji: String) {
+        sink.commit(emoji)
+        com.keyboardyou.data.EmojiStore.use(emoji)
+        sink.feedback(FeedbackKind.KEY)
     }
 
     fun commitEmoji(emoji: String) {
@@ -423,7 +471,7 @@ class KeyboardController(
     }
 
     private fun updateCurrentWord() {
-        if (translatorOpen) {
+        if (translatorOpen || emojiSearchOpen) {
             currentWord = ""
             return
         }
@@ -434,7 +482,7 @@ class KeyboardController(
     private fun updateSuggestions() {
         suggestions.clear()
         val s = settings
-        if (!s.suggestions || privateField || fieldKind != FieldKind.TEXT || translatorOpen) return
+        if (!s.suggestions || privateField || fieldKind != FieldKind.TEXT || translatorOpen || emojiSearchOpen) return
         if (currentWord.isEmpty()) {
             lastCorrection?.let { suggestions += Suggestion.Revert(it.original) }
             if (s.clipboardSuggest) {
@@ -452,7 +500,7 @@ class KeyboardController(
     }
 
     private fun updateAutoCaps() {
-        if (mode != Mode.ALPHA || shift == ShiftState.LOCKED) return
+        if (mode != Mode.ALPHA || shift == ShiftState.LOCKED || emojiSearchOpen) return
         if (!settings.autoCapitalize) {
             if (shift == ShiftState.ONCE) shift = ShiftState.OFF
             return
@@ -471,6 +519,7 @@ class KeyboardController(
     // ---------- Переводчик ----------
 
     fun toggleTranslator() {
+        emojiSearchOpen = false
         translatorOpen = !translatorOpen
         toolbarOpen = false
         panel = Panel.KEYBOARD

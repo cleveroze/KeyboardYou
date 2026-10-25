@@ -13,5 +13,6 @@ class KeyboardApp : Application() {
         SettingsRepository.init(this)
         ClipboardRepository.init(this)
         WordRepository.init(this)
+        com.keyboardyou.data.EmojiStore.init(this)
     }
 }

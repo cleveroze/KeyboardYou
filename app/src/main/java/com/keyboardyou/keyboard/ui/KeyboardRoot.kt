@@ -77,7 +77,13 @@ fun KeyboardRoot(
                 ) {
                     TranslatorBar(controller)
                 }
-                SuggestionStrip(controller)
+                AnimatedContent(
+                    targetState = controller.emojiSearchOpen,
+                    transitionSpec = { (fadeIn(tween(200)) + slideInVertically { -it / 3 }) togetherWith fadeOut(tween(120)) },
+                    label = "strip",
+                ) { searching ->
+                    if (searching) EmojiSearchBar(controller) else SuggestionStrip(controller)
+                }
                 val areaHeight = keysAreaHeight(settings)
                 AnimatedContent(
                     targetState = controller.panel,

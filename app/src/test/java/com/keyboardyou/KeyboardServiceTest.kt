@@ -114,4 +114,28 @@ class KeyboardServiceTest {
         rule.mainClock.advanceTimeBy(300)
         key("в").performClick()
     }
+
+    @Test
+    fun emojiSearchFavoritesAndRecents() {
+        val store = com.keyboardyou.data.EmojiStore
+        store.init(org.robolectric.RuntimeEnvironment.getApplication())
+        var found = emptyList<String>()
+        repeat(50) {
+            if (found.isEmpty()) {
+                Thread.sleep(100)
+                found = store.search("огонь")
+            }
+        }
+        org.junit.Assert.assertTrue("search: $found", "🔥" in found)
+        org.junit.Assert.assertTrue("🐱" in store.search("кот") || "😺" in store.search("кот"))
+        repeat(20) { store.use("😀"); store.use("🔥") }
+        (0 until 20).forEach { store.use(String(Character.toChars(0x1F600 + it))) }
+        org.junit.Assert.assertEquals(15, store.recents.value.size)
+        if (!store.isFavorite("🔥")) store.toggleFavorite("🔥")
+        org.junit.Assert.assertTrue(store.isFavorite("🔥"))
+
+        launch(name = "emoji")
+        key("ж").performClick() // клавиатура живая
+        rule.mainClock.advanceTimeBy(300)
+    }
 }

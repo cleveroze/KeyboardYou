@@ -70,6 +70,7 @@ class KeyboardService : InputMethodService(), LifecycleOwner, SavedStateRegistry
         SettingsRepository.init(this)
         ClipboardRepository.init(this)
         WordRepository.init(this)
+        com.keyboardyou.data.EmojiStore.init(this)
         savedStateController.performRestore(null)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         controller = KeyboardController(scope, this)
